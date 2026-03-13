@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PortfolioTracker – Fond & Aksjer</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.4/build/global/luxon.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1/dist/chartjs-adapter-luxon.umd.min.js"></script>
+</head>
+<body>
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <span class="logo">📈 PortfolioTracker</span>
+      <button class="sidebar-close" id="sidebarClose" aria-label="Lukk meny">✕</button>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="#" class="nav-item active" data-page="overview">
+        <span class="nav-icon">🏠</span> Oversikt
+      </a>
+      <a href="#" class="nav-item" data-page="portfolio">
+        <span class="nav-icon">💼</span> Portefølje
+      </a>
+      <a href="#" class="nav-item" data-page="analysis">
+        <span class="nav-icon">📊</span> Analyse
+      </a>
+      <a href="#" class="nav-item" data-page="transactions">
+        <span class="nav-icon">🔄</span> Transaksjoner
+      </a>
+      <a href="#" class="nav-item" data-page="watchlist">
+        <span class="nav-icon">👁️</span> Overvåkningsliste
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="btn btn-secondary btn-sm" id="exportBtn">⬇ Eksporter data</button>
+      <button class="btn btn-danger btn-sm" id="resetBtn">🗑 Nullstill alt</button>
+    </div>
+  </aside>
+
+  <!-- MAIN LAYOUT -->
+  <div class="layout" id="layout">
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <button class="menu-toggle" id="menuToggle" aria-label="Åpne meny">☰</button>
+      <div class="topbar-search">
+        <input type="text" id="globalSearch" placeholder="Søk etter aksje eller fond (f.eks. EQNR, DNB)…" autocomplete="off" />
+        <div class="search-results" id="searchResults"></div>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn btn-primary" id="addHoldingBtn">+ Legg til beholdning</button>
+        <div class="market-status" id="marketStatus">
+          <span class="status-dot"></span>
+          <span class="status-text">Markedet åpent</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- PAGES -->
+    <main class="main-content">
+
+      <!-- ── OVERVIEW PAGE ── -->
+      <section class="page active" id="page-overview">
+        <h1 class="page-title">Oversikt</h1>
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-label">Total porteføljeverdi</div>
+            <div class="kpi-value" id="totalValue">–</div>
+            <div class="kpi-sub" id="totalChange">–</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Total gevinst / tap</div>
+            <div class="kpi-value" id="totalGain">–</div>
+            <div class="kpi-sub" id="totalGainPct">–</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Beholdninger</div>
+            <div class="kpi-value" id="holdingsCount">–</div>
+            <div class="kpi-sub">aksjer & fond</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Daglig endring</div>
+            <div class="kpi-value" id="dailyChange">–</div>
+            <div class="kpi-sub" id="dailyChangePct">–</div>
+          </div>
+        </div>
+
+        <div class="charts-row">
+          <div class="chart-card wide">
+            <div class="chart-card-header">
+              <h2>Porteføljeutvikling</h2>
+              <div class="period-tabs" id="periodTabs">
+                <button class="period-btn active" data-period="1W">1U</button>
+                <button class="period-btn" data-period="1M">1M</button>
+                <button class="period-btn" data-period="3M">3M</button>
+                <button class="period-btn" data-period="6M">6M</button>
+                <button class="period-btn" data-period="1Y">1Å</button>
+                <button class="period-btn" data-period="ALL">Alt</button>
+              </div>
+            </div>
+            <canvas id="performanceChart"></canvas>
+          </div>
+          <div class="chart-card">
+            <div class="chart-card-header"><h2>Allokering</h2></div>
+            <canvas id="allocationChart"></canvas>
+            <div class="allocation-legend" id="allocationLegend"></div>
+          </div>
+        </div>
+
+        <div class="section-header">
+          <h2>Topp beholdninger</h2>
+        </div>
+        <div class="holdings-table-wrap">
+          <table class="holdings-table" id="overviewTable">
+            <thead>
+              <tr>
+                <th>Navn</th>
+                <th>Ticker</th>
+                <th>Type</th>
+                <th class="num">Antall</th>
+                <th class="num">Kurs</th>
+                <th class="num">Verdi</th>
+                <th class="num">Gj.snittpris</th>
+                <th class="num">Gevinst/tap</th>
+                <th class="num">Daglig</th>
+              </tr>
+            </thead>
+            <tbody id="overviewTableBody"></tbody>
+          </table>
+          <div class="empty-state" id="overviewEmpty" style="display:none">
+            <div class="empty-icon">📂</div>
+            <p>Ingen beholdninger ennå.</p>
+            <button class="btn btn-primary" id="emptyAddBtn">+ Legg til første beholdning</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── PORTFOLIO PAGE ── -->
+      <section class="page" id="page-portfolio">
+        <h1 class="page-title">Portefølje</h1>
+        <div class="filter-bar">
+          <input type="text" id="portfolioFilter" placeholder="Filtrer…" />
+          <select id="typeFilter">
+            <option value="">Alle typer</option>
+            <option value="Aksje">Aksjer</option>
+            <option value="Fond">Fond</option>
+            <option value="ETF">ETF</option>
+            <option value="Krypto">Krypto</option>
+          </select>
+          <select id="sortBy">
+            <option value="value">Sorter etter verdi</option>
+            <option value="gain">Sorter etter gevinst</option>
+            <option value="name">Sorter etter navn</option>
+            <option value="change">Sorter etter daglig endring</option>
+          </select>
+        </div>
+        <div class="holdings-grid" id="holdingsGrid"></div>
+        <div class="empty-state" id="portfolioEmpty" style="display:none">
+          <div class="empty-icon">💼</div>
+          <p>Porteføljen din er tom. Legg til beholdninger for å komme i gang.</p>
+        </div>
+      </section>
+
+      <!-- ── ANALYSIS PAGE ── -->
+      <section class="page" id="page-analysis">
+        <h1 class="page-title">Analyse</h1>
+        <div class="analysis-grid">
+          <div class="chart-card">
+            <div class="chart-card-header"><h2>Sektordistribusjon</h2></div>
+            <canvas id="sectorChart"></canvas>
+          </div>
+          <div class="chart-card">
+            <div class="chart-card-header"><h2>Type-fordeling</h2></div>
+            <canvas id="typeChart"></canvas>
+          </div>
+          <div class="chart-card wide">
+            <div class="chart-card-header"><h2>Gevinst / tap per beholdning</h2></div>
+            <canvas id="gainChart"></canvas>
+          </div>
+          <div class="chart-card">
+            <div class="chart-card-header"><h2>Risikoprofil</h2></div>
+            <canvas id="riskChart"></canvas>
+          </div>
+        </div>
+        <div class="stats-grid" id="statsGrid"></div>
+      </section>
+
+      <!-- ── TRANSACTIONS PAGE ── -->
+      <section class="page" id="page-transactions">
+        <h1 class="page-title">Transaksjoner</h1>
+        <div class="filter-bar">
+          <input type="text" id="txFilter" placeholder="Søk transaksjon…" />
+          <select id="txTypeFilter">
+            <option value="">Alle</option>
+            <option value="buy">Kjøp</option>
+            <option value="sell">Salg</option>
+            <option value="dividend">Utbytte</option>
+          </select>
+        </div>
+        <div class="tx-list" id="txList"></div>
+        <div class="empty-state" id="txEmpty" style="display:none">
+          <div class="empty-icon">🔄</div>
+          <p>Ingen transaksjoner registrert ennå.</p>
+        </div>
+      </section>
+
+      <!-- ── WATCHLIST PAGE ── -->
+      <section class="page" id="page-watchlist">
+        <h1 class="page-title">Overvåkningsliste</h1>
+        <div class="filter-bar">
+          <input type="text" id="watchSearch" placeholder="Legg til ticker eller fond…" autocomplete="off" />
+          <div class="search-results" id="watchSearchResults"></div>
+          <button class="btn btn-primary" id="watchAddBtn">+ Legg til</button>
+        </div>
+        <div class="watchlist-grid" id="watchlistGrid"></div>
+        <div class="empty-state" id="watchlistEmpty" style="display:none">
+          <div class="empty-icon">👁️</div>
+          <p>Overvåkningslisten er tom. Søk etter aksjer eller fond og legg dem til.</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ── MODAL: Legg til beholdning ── -->
+  <div class="modal-overlay" id="addModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="modalTitle">Legg til beholdning</h2>
+        <button class="modal-close" id="modalClose">✕</button>
+      </div>
+      <form id="addForm">
+        <div class="form-group">
+          <label>Søk etter aksje / fond</label>
+          <input type="text" id="searchInput" placeholder="F.eks. EQNR, DNB, Tesla…" autocomplete="off" />
+          <div class="search-results" id="modalSearchResults"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Ticker / kode *</label>
+            <input type="text" id="tickerInput" placeholder="EQNR" required />
+          </div>
+          <div class="form-group">
+            <label>Navn *</label>
+            <input type="text" id="nameInput" placeholder="Equinor ASA" required />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Type *</label>
+            <select id="typeInput" required>
+              <option value="">Velg type</option>
+              <option value="Aksje">Aksje</option>
+              <option value="Fond">Fond</option>
+              <option value="ETF">ETF</option>
+              <option value="Krypto">Krypto</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Sektor</label>
+            <select id="sectorInput">
+              <option value="Energi">Energi</option>
+              <option value="Teknologi">Teknologi</option>
+              <option value="Finans">Finans</option>
+              <option value="Helse">Helse</option>
+              <option value="Industri">Industri</option>
+              <option value="Forbruker">Forbruker</option>
+              <option value="Materialer">Materialer</option>
+              <option value="Eiendom">Eiendom</option>
+              <option value="Telekom">Telekom</option>
+              <option value="Diversifisert">Diversifisert</option>
+              <option value="Krypto">Krypto</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Antall / andeler *</label>
+            <input type="number" id="sharesInput" placeholder="100" min="0.001" step="any" required />
+          </div>
+          <div class="form-group">
+            <label>Gjennomsnittlig kjøpspris (NOK) *</label>
+            <input type="number" id="priceInput" placeholder="350.00" min="0" step="any" required />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Nåværende kurs (NOK)</label>
+            <input type="number" id="currentPriceInput" placeholder="Hentes automatisk" min="0" step="any" />
+          </div>
+          <div class="form-group">
+            <label>Kjøpsdato</label>
+            <input type="date" id="dateInput" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Notat</label>
+          <textarea id="noteInput" placeholder="Valgfritt notat…" rows="2"></textarea>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="cancelBtn">Avbryt</button>
+          <button type="submit" class="btn btn-primary">Lagre beholdning</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── MODAL: Detaljer ── -->
+  <div class="modal-overlay" id="detailModal">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <h2 id="detailTitle">Beholdningsdetaljer</h2>
+        <button class="modal-close" id="detailModalClose">✕</button>
+      </div>
+      <div id="detailContent"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="js/data.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
