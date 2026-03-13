@@ -96,7 +96,7 @@ function generateHistory(currentPrice, days) {
   return history;
 }
 
-/** Simulate a small tick update */
+/** Simulate a small tick update (kun for simulerte priser) */
 function tickPrices() {
   INSTRUMENTS.forEach(inst => {
     const lp = livePrices[inst.ticker];
@@ -105,6 +105,13 @@ function tickPrices() {
     lp.price = +(lp.price * (1 + move)).toFixed(2);
     lp.change = +(lp.change + (Math.random() - 0.5) * 0.1).toFixed(2);
   });
+}
+
+/** Oppdater én ticker med reell pris (kalles fra api.js) */
+function updateLivePrice(ticker, price, change) {
+  if (!livePrices[ticker]) return;
+  livePrices[ticker].price  = price;
+  livePrices[ticker].change = change;
 }
 
 function getLivePrice(ticker) {

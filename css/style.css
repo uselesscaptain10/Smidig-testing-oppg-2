@@ -156,6 +156,17 @@ body {
   margin-left: auto;
 }
 
+.api-badge {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.badge-live  { background: rgba(34,197,94,.15);  color: var(--success); }
+.badge-sim   { background: rgba(245,158,11,.15); color: var(--warning); }
+.badge-load  { background: rgba(59,130,246,.15); color: var(--primary); }
+
 .market-status {
   display: flex;
   align-items: center;

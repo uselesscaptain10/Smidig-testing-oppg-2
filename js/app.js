@@ -13,15 +13,31 @@ let activePeriod = '1M';
 let editingId    = null;
 
 /* ─── INIT ──────────────────────────────────────────────────────── */
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   initLivePrices();
   seedDemoData();
   bindEvents();
   navigateTo('overview');
-  startPriceTicker();
   updateMarketStatus();
   setInterval(updateMarketStatus, 60000);
+
+  /* Hent ekte priser fra Yahoo Finance */
+  await initRealPrices();
+  /* Oppdater hvert 60. sekund */
+  setInterval(refreshAllPrices, 60000);
 });
+
+async function initRealPrices() {
+  const allTickers = INSTRUMENTS.map(i => i.ticker);
+  await refreshPrices(allTickers);
+  renderPage(currentPage);
+}
+
+async function refreshAllPrices() {
+  const allTickers = INSTRUMENTS.map(i => i.ticker);
+  await refreshPrices(allTickers);
+  renderPage(currentPage);
+}
 
 /* ─── DEMO SEED (first visit) ───────────────────────────────────── */
 function seedDemoData() {
@@ -553,16 +569,7 @@ function attachSearchDropdown(inputId, resultsId, onSelect) {
   });
 }
 
-/* ─── PRICE TICKER ──────────────────────────────────────────────── */
-let tickerInterval;
-function startPriceTicker() {
-  tickerInterval = setInterval(() => {
-    tickPrices();
-    if (currentPage === 'overview')  renderOverview();
-    if (currentPage === 'portfolio') renderPortfolio();
-    if (currentPage === 'watchlist') renderWatchlist();
-  }, 5000);
-}
+/* ─── PRICE TICKER (fjernet – erstattet av API-refresh hvert 60s) ── */
 
 /* ─── MARKET STATUS ─────────────────────────────────────────────── */
 function updateMarketStatus() {
