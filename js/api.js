@@ -1,7 +1,8 @@
 /**
- * api.js – Yahoo Finance integration via CORS proxy
- * Priser hentes fra Yahoo Finance og konverteres til NOK.
- * Faller tilbake til simulerte priser hvis API feiler.
+ * api.js – Yahoo Finance + Morningstar Norway (norske fond)
+ * Aksjer/ETF/krypto: Yahoo Finance (via CORS proxy)
+ * Norske fond:       Morningstar Norway screener API
+ * Faller tilbake til simulerte priser ved feil.
  */
 
 'use strict';
@@ -48,11 +49,23 @@ const YF_MAP = {
   'SOL':        'SOL-USD',
 };
 
-/* Norske fond finnes ikke på Yahoo Finance – beholder simulerte data */
+/* Norske fond hentes fra Morningstar, ikke Yahoo Finance */
 const NO_YF = new Set([
   'DNB-GLOBAL', 'DNB-TEKNOLOGI', 'DNB-NORGE',
   'SB-GLOBAL', 'KLP-GLOBAL', 'KLP-NORGE', 'ALFRED-GLOBAL',
 ]);
+
+/* ─── MORNINGSTAR NORWAY – norske fond ─────────────────────────── */
+/* Kobler vår ticker til fondnavn slik det vises i Morningstar */
+const MS_FOND_NAMES = {
+  'DNB-GLOBAL':    ['DNB Global Indeks', 'DNB Global'],
+  'DNB-TEKNOLOGI': ['DNB Teknologi'],
+  'DNB-NORGE':     ['DNB Norge Indeks', 'DNB Norge Indeks A'],
+  'SB-GLOBAL':     ['Storebrand Global Indeks', 'Storebrand Global'],
+  'KLP-GLOBAL':    ['KLP AksjeGlobal Indeks', 'KLP AksjeGlobal Indeks I'],
+  'KLP-NORGE':     ['KLP AksjeNorge Indeks', 'KLP AksjeNorge Indeks I'],
+  'ALFRED-GLOBAL': ['Alfred Berg Global', 'Alfred Berg Global Quant'],
+};
 
 /* Valutakurser (fallback-verdier) */
 let usdNok = 10.8;
@@ -66,9 +79,10 @@ function setApiStatus(status) {
   const el = document.getElementById('apiStatusBadge');
   if (!el) return;
   const map = {
-    live:      { text: '● Live-data (Yahoo Finance)', cls: 'badge-live' },
-    simulated: { text: '○ Simulerte priser',          cls: 'badge-sim'  },
-    loading:   { text: '⟳ Henter priser…',            cls: 'badge-load' },
+    live:      { text: '● Live-data',          cls: 'badge-live' },
+    partial:   { text: '◑ Delvis live-data',   cls: 'badge-part' },
+    simulated: { text: '○ Simulerte priser',   cls: 'badge-sim'  },
+    loading:   { text: '⟳ Henter priser…',     cls: 'badge-load' },
   };
   const { text, cls } = map[status] || map.simulated;
   el.textContent  = text;
@@ -180,6 +194,42 @@ async function fetchHistory(ticker, period) {
   }).filter(Boolean);
 }
 
+/* ─── MORNINGSTAR NORWAY: FONDSPRISER ───────────────────────────── */
+async function fetchNorwegianFundPrices() {
+  /* Morningstar Norway screener – henter alle norske fond (FONOR$$ALL)
+     Token klpd5zyph8 brukes av morningstar.no og er offentlig tilgjengelig */
+  const url = 'https://lt.morningstar.com/api/rest.svc/klpd5zyph8/security/screener'
+    + '?page=1&pageSize=500&sortOrder=LegalName%20asc&outputType=json&version=1'
+    + '&languageId=nb-NO&currencyId=NOK'
+    + '&universeIds=FONOR$$ALL'
+    + '&securityDataPoints=SecId|LegalName|NAVDate|NAV|DayChange';
+
+  const data = await proxyFetch(url);
+  const rows = data?.rows || [];
+
+  if (rows.length === 0) throw new Error('Morningstar returnerte ingen fond');
+
+  const out = {};
+
+  Object.entries(MS_FOND_NAMES).forEach(([ticker, nameAliases]) => {
+    const row = rows.find(r => {
+      const rowName = (r.LegalName || '').toLowerCase().trim();
+      return nameAliases.some(alias => rowName.includes(alias.toLowerCase()));
+    });
+
+    if (!row) return;
+
+    const price  = parseFloat(row.NAV);
+    const change = parseFloat(row.DayChange ?? 0);
+
+    if (!isNaN(price) && price > 0) {
+      out[ticker] = { price: +price.toFixed(2), change: +change.toFixed(2) };
+    }
+  });
+
+  return out;
+}
+
 /* ─── SKALÉR SIMULERT HISTORIKK TIL REAL PRIS ──────────────────── */
 function scaleHistory(history, realPrice) {
   if (!history?.length || !realPrice) return history;
@@ -189,29 +239,53 @@ function scaleHistory(history, realPrice) {
   return history.map(p => ({ ...p, price: +(p.price * factor).toFixed(2) }));
 }
 
-/* ─── OPPDATER livePrices FRA API ───────────────────────────────── */
+/* ─── OPPDATER livePrices FRA BEGGE API-ER ──────────────────────── */
 async function refreshPrices(tickers) {
   setApiStatus('loading');
-  try {
-    const quotes = await fetchLiveQuotes(tickers);
-    if (Object.keys(quotes).length === 0) throw new Error('Ingen data returnert');
 
-    Object.entries(quotes).forEach(([ticker, { price, change }]) => {
-      const lp = livePrices[ticker];
-      if (!lp) return;
-      /* Skalér simulert historikk til den reelle kursen */
-      lp.history = scaleHistory(lp.history, price);
-      lp.price   = price;
-      lp.change  = change;
-    });
+  /* Kjør Yahoo Finance og Morningstar parallelt */
+  const [yfResult, msResult] = await Promise.allSettled([
+    fetchLiveQuotes(tickers),
+    fetchNorwegianFundPrices(),
+  ]);
 
-    setApiStatus('live');
-    return true;
-  } catch (err) {
-    console.warn('Yahoo Finance-henting feilet, bruker simulerte priser:', err.message);
+  /* Slå sammen resultatene */
+  const allQuotes = {
+    ...(yfResult.status === 'fulfilled' ? yfResult.value : {}),
+    ...(msResult.status === 'fulfilled' ? msResult.value : {}),
+  };
+
+  if (msResult.status === 'rejected') {
+    console.warn('Morningstar feilet:', msResult.reason?.message);
+  }
+  if (yfResult.status === 'rejected') {
+    console.warn('Yahoo Finance feilet:', yfResult.reason?.message);
+  }
+
+  const gotYf  = yfResult.status === 'fulfilled' && Object.keys(yfResult.value).length > 0;
+  const gotMs  = msResult.status === 'fulfilled' && Object.keys(msResult.value).length > 0;
+
+  if (!gotYf && !gotMs) {
     setApiStatus('simulated');
     return false;
   }
+
+  /* Oppdater livePrices */
+  Object.entries(allQuotes).forEach(([ticker, { price, change }]) => {
+    const lp = livePrices[ticker];
+    if (!lp) return;
+    lp.history = scaleHistory(lp.history, price);
+    lp.price   = price;
+    lp.change  = change;
+  });
+
+  /* Badge: live hvis begge fungerer, delvis ellers */
+  if (gotYf && gotMs) {
+    setApiStatus('live');
+  } else {
+    setApiStatus('partial');
+  }
+  return true;
 }
 
 /* ─── HENT HISTORIKK FOR CHART OG LAGRE I livePrices ────────────── */
