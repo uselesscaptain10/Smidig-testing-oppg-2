@@ -32,6 +32,9 @@
       <a href="#" class="nav-item" data-page="watchlist">
         <span class="nav-icon">👁️</span> Overvåkningsliste
       </a>
+      <a href="#" class="nav-item" data-page="competitive">
+        <span class="nav-icon">🔍</span> Konkurrentanalyse
+      </a>
     </nav>
     <div class="sidebar-footer">
       <button class="btn btn-secondary btn-sm" id="exportBtn">⬇ Eksporter data</button>
@@ -217,6 +220,131 @@
         <div class="empty-state" id="watchlistEmpty" style="display:none">
           <div class="empty-icon">👁️</div>
           <p>Overvåkningslisten er tom. Søk etter aksjer eller fond og legg dem til.</p>
+        </div>
+      </section>
+
+      <!-- ── COMPETITIVE ANALYSIS PAGE ── -->
+      <section class="page" id="page-competitive">
+        <h1 class="page-title">Konkurrentanalyse</h1>
+
+        <!-- COMPS -->
+        <div class="section-header">
+          <h2>Sammenlignbare selskaper (Comps)</h2>
+          <div class="comps-controls">
+            <select id="compsSector">
+              <option value="">Alle sektorer</option>
+              <option value="Teknologi">Teknologi</option>
+              <option value="Forbruker">Forbruker</option>
+              <option value="Energi">Energi</option>
+              <option value="Finans">Finans</option>
+              <option value="Industri">Industri</option>
+            </select>
+            <select id="compsMetric">
+              <option value="pe">P/E</option>
+              <option value="ps">P/S</option>
+              <option value="evEbitda">EV/EBITDA</option>
+              <option value="revGrowth">Oms.vekst %</option>
+              <option value="netMargin">Nettomarg. %</option>
+              <option value="roe">ROE %</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="comps-table-wrap">
+          <table class="comps-table">
+            <thead>
+              <tr>
+                <th>Selskap</th>
+                <th>Sektor</th>
+                <th class="num">P/E</th>
+                <th class="num">P/S</th>
+                <th class="num">EV/EBITDA</th>
+                <th class="num">P/BV</th>
+                <th class="num">Oms.vekst %</th>
+                <th class="num">Nettomarg. %</th>
+                <th class="num">ROE %</th>
+              </tr>
+            </thead>
+            <tbody id="compsTableBody"></tbody>
+          </table>
+        </div>
+
+        <div class="charts-row" style="margin-top:20px">
+          <div class="chart-card wide">
+            <div class="chart-card-header">
+              <h2 id="compsChartTitle">P/E – Sammenligning</h2>
+            </div>
+            <canvas id="compsChart"></canvas>
+          </div>
+        </div>
+
+        <!-- DCF -->
+        <div class="section-header" style="margin-top:32px">
+          <h2>DCF-kalkulator</h2>
+          <span class="muted" style="font-size:13px">Diskontert kontantstrøm – 10-årig prognose</span>
+        </div>
+
+        <div class="dcf-grid">
+          <div class="dcf-panel">
+            <h3 class="dcf-panel-title">Forutsetninger</h3>
+            <div class="form-group">
+              <label>Last inn aksje</label>
+              <select id="dcfTickerSelect">
+                <option value="">– Egendefinert –</option>
+                <option value="AAPL">AAPL – Apple Inc.</option>
+                <option value="MSFT">MSFT – Microsoft Corp.</option>
+                <option value="GOOGL">GOOGL – Alphabet Inc.</option>
+                <option value="NVDA">NVDA – NVIDIA Corp.</option>
+                <option value="META">META – Meta Platforms</option>
+                <option value="AMZN">AMZN – Amazon.com Inc.</option>
+                <option value="NFLX">NFLX – Netflix Inc.</option>
+                <option value="TSLA">TSLA – Tesla Inc.</option>
+                <option value="EQNR">EQNR – Equinor ASA</option>
+                <option value="DNB">DNB – DNB Bank ASA</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>FCF per aksje (NOK)</label>
+                <input type="number" id="dcfFCF" value="72" min="0" step="0.01" />
+              </div>
+              <div class="form-group">
+                <label>Nåværende kurs (NOK)</label>
+                <input type="number" id="dcfCurrentPrice" value="2290" min="0" step="0.01" />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Vekst år 1–5 (%)</label>
+                <input type="number" id="dcfG1" value="6" min="-50" max="200" step="0.1" />
+              </div>
+              <div class="form-group">
+                <label>Vekst år 6–10 (%)</label>
+                <input type="number" id="dcfG2" value="3" min="-50" max="100" step="0.1" />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>WACC / diskonteringsrente (%)</label>
+                <input type="number" id="dcfWACC" value="9" min="1" max="30" step="0.1" />
+              </div>
+              <div class="form-group">
+                <label>Terminal vekstrate (%)</label>
+                <input type="number" id="dcfTG" value="2.5" min="0" max="10" step="0.1" />
+              </div>
+            </div>
+            <button class="btn btn-primary dcf-calc-btn" id="dcfCalcBtn">Beregn intrinsisk verdi</button>
+          </div>
+
+          <div class="dcf-panel" id="dcfResultsPanel">
+            <h3 class="dcf-panel-title">Resultat</h3>
+            <div id="dcfResults">
+              <div class="empty-state" style="padding:32px 0">
+                <div class="empty-icon">🔢</div>
+                <p>Fyll inn forutsetninger og trykk «Beregn»</p>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
     </main>

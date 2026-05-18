@@ -86,6 +86,7 @@ function renderPage(page) {
     case 'analysis':     renderAnalysis();     break;
     case 'transactions': renderTransactions(); break;
     case 'watchlist':    renderWatchlist();    break;
+    case 'competitive':  renderCompetitiveAnalysis(); break;
   }
 }
 
@@ -724,6 +725,165 @@ function bindEvents() {
       watchResults.classList.remove('open');
     }
   });
+
+  // Competitive analysis
+  el('compsSector').addEventListener('change', () => {
+    renderCompsTable();
+    renderCompsBarChart(el('compsMetric').value);
+  });
+  el('compsMetric').addEventListener('change', () => {
+    renderCompsBarChart(el('compsMetric').value);
+  });
+  el('dcfCalcBtn').addEventListener('click', calcDCF);
+  el('dcfTickerSelect').addEventListener('change', () => {
+    const ticker = el('dcfTickerSelect').value;
+    if (!ticker) return;
+    const comp = COMP_DATA.find(c => c.ticker === ticker);
+    if (!comp) return;
+    el('dcfFCF').value          = comp.fcfPS;
+    el('dcfG1').value           = comp.g1;
+    el('dcfG2').value           = comp.g2;
+    el('dcfWACC').value         = comp.wacc;
+    el('dcfTG').value           = comp.tg;
+    const lp = getLivePrice(ticker);
+    if (lp) el('dcfCurrentPrice').value = lp.price;
+  });
+}
+
+/* ─── COMPETITIVE ANALYSIS ──────────────────────────────────────── */
+function renderCompetitiveAnalysis() {
+  renderCompsTable();
+  renderCompsBarChart(el('compsMetric').value || 'pe');
+}
+
+function renderCompsTable() {
+  const sector = el('compsSector').value;
+  const data   = sector ? COMP_DATA.filter(c => c.sector === sector) : COMP_DATA;
+  const owned  = new Set(holdings.map(h => h.ticker));
+
+  const fmtV  = v => v != null ? fmtNum(v) : '–';
+  const fmtG  = v => v != null ? (v >= 0 ? '+' : '') + fmtNum(v) + '%' : '–';
+  const gcG   = v => v == null ? '' : v >= 0 ? 'pos' : 'neg';
+
+  el('compsTableBody').innerHTML = data.map(c => `
+    <tr class="${owned.has(c.ticker) ? 'comps-row-owned' : ''}">
+      <td>
+        <span class="ticker-badge">${c.ticker}</span>
+        <span style="margin-left:6px">${c.name}</span>
+        ${owned.has(c.ticker) ? '<span class="badge-owned">I portefølje</span>' : ''}
+      </td>
+      <td>${c.sector}</td>
+      <td class="num">${fmtV(c.pe)}</td>
+      <td class="num">${fmtV(c.ps)}</td>
+      <td class="num">${fmtV(c.evEbitda)}</td>
+      <td class="num">${fmtV(c.pbv)}</td>
+      <td class="num ${gcG(c.revGrowth)}">${fmtG(c.revGrowth)}</td>
+      <td class="num pos">${fmtV(c.netMargin)}%</td>
+      <td class="num pos">${fmtV(c.roe)}%</td>
+    </tr>
+  `).join('');
+}
+
+function calcDCF() {
+  const fcf   = +el('dcfFCF').value;
+  const g1    = +el('dcfG1').value / 100;
+  const g2    = +el('dcfG2').value / 100;
+  const wacc  = +el('dcfWACC').value / 100;
+  const tg    = +el('dcfTG').value / 100;
+  const price = +el('dcfCurrentPrice').value;
+
+  if (!fcf || wacc <= tg || wacc <= 0) {
+    showToast('Ugyldig input – sjekk WACC og terminalvekst', 'error');
+    return;
+  }
+
+  let cf = fcf, pvFCF = 0;
+  for (let t = 1; t <= 10; t++) {
+    cf = cf * (1 + (t <= 5 ? g1 : g2));
+    pvFCF += cf / Math.pow(1 + wacc, t);
+  }
+  const tv   = cf * (1 + tg) / (wacc - tg);
+  const pvTV = tv / Math.pow(1 + wacc, 10);
+  const intrinsic = pvFCF + pvTV;
+  const mos = price > 0 ? (intrinsic - price) / price * 100 : null;
+
+  // Sensitivity: rows = WACC ± 2%, cols = g1 ± 2%
+  const dSteps = [-2, -1, 0, 1, 2];
+  const sensCols = dSteps.map(d => ((g1 + d / 100) * 100).toFixed(1) + '%');
+  const sensRows = dSteps.map(dw => {
+    const w = wacc + dw / 100;
+    return {
+      wacc: (w * 100).toFixed(1) + '%',
+      vals: dSteps.map(dg => {
+        const gg = g1 + dg / 100;
+        if (w <= tg) return null;
+        let c2 = fcf, pv2 = 0;
+        for (let t = 1; t <= 10; t++) { c2 = c2 * (1 + (t <= 5 ? gg : g2)); pv2 += c2 / Math.pow(1 + w, t); }
+        const tv2 = c2 * (1 + tg) / (w - tg);
+        return pv2 + tv2 / Math.pow(1 + w, 10);
+      })
+    };
+  });
+
+  const mosClass = mos == null ? '' : mos > 20 ? 'pos' : mos < -20 ? 'neg' : '';
+  const verdict  = mos == null ? '' : mos > 20
+    ? '✅ Undervurdert – potensielt kjøpskandidat'
+    : mos < -20 ? '⚠️ Overvurdert – vær forsiktig'
+    : '⚖️ Tilnærmet rettferdig priset';
+
+  el('dcfResults').innerHTML = `
+    <div class="dcf-kpi-grid">
+      <div class="dcf-kpi">
+        <div class="dcf-kpi-label">Intrinsisk verdi</div>
+        <div class="dcf-kpi-value fw-bold">${fmtNOK(intrinsic)}</div>
+      </div>
+      <div class="dcf-kpi">
+        <div class="dcf-kpi-label">Markedspris</div>
+        <div class="dcf-kpi-value">${fmtNOK(price)}</div>
+      </div>
+      <div class="dcf-kpi">
+        <div class="dcf-kpi-label">Sikkerhetsmargin</div>
+        <div class="dcf-kpi-value ${mosClass}">${mos != null ? (mos >= 0 ? '+' : '') + fmtNum(mos) + '%' : '–'}</div>
+      </div>
+      <div class="dcf-kpi">
+        <div class="dcf-kpi-label">PV av FCF (år 1–10)</div>
+        <div class="dcf-kpi-value">${fmtNOK(pvFCF)}</div>
+      </div>
+      <div class="dcf-kpi">
+        <div class="dcf-kpi-label">PV av terminalverdi</div>
+        <div class="dcf-kpi-value">${fmtNOK(pvTV)}</div>
+      </div>
+      <div class="dcf-kpi">
+        <div class="dcf-kpi-label">TV-andel</div>
+        <div class="dcf-kpi-value">${fmtPct(pvTV / intrinsic * 100)}</div>
+      </div>
+    </div>
+    ${verdict ? `<div class="dcf-verdict ${mosClass}">${verdict}</div>` : ''}
+    <div class="dcf-sens-header">Sensitivitetsanalyse – intrinsisk verdi per aksje (NOK)</div>
+    <div class="sens-wrap">
+      <table class="sens-table">
+        <thead>
+          <tr>
+            <th>WACC \\ Vekst</th>
+            ${sensCols.map(g => `<th>${g}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          ${sensRows.map((row, ri) => `
+            <tr>
+              <th>${row.wacc}</th>
+              ${row.vals.map((v, ci) => {
+                if (v == null) return '<td>–</td>';
+                const isCtr = ri === 2 && ci === 2;
+                const cls   = v > price * 1.2 ? 'pos' : v < price * 0.8 ? 'neg' : '';
+                return `<td class="${cls}${isCtr ? ' sens-center' : ''}">${fmtNOK(v)}</td>`;
+              }).join('')}
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
 }
 
 /* ─── HELPERS ───────────────────────────────────────────────────── */

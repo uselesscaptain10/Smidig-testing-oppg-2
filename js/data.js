@@ -229,3 +229,19 @@ const CHART_COLORS = [
 ];
 
 function getColor(i) { return CHART_COLORS[i % CHART_COLORS.length]; }
+
+/* ─── COMPETITIVE ANALYSIS DATA ────────────────────────────────────── */
+// Simulated financial metrics (educational / demo data, NOK-adjusted)
+const COMP_DATA = [
+  { ticker: 'AAPL',      name: 'Apple Inc.',        sector: 'Teknologi', pe: 32.4, ps:  7.5, evEbitda: 24.1, pbv: 48.0, revGrowth:   2.8, netMargin: 25.3, roe: 147.2, fcfPS:  72, wacc:  9.0, tg: 2.5, g1:  6, g2:  3 },
+  { ticker: 'MSFT',      name: 'Microsoft Corp.',   sector: 'Teknologi', pe: 36.2, ps: 12.4, evEbitda: 26.8, pbv: 14.2, revGrowth:  15.6, netMargin: 35.1, roe:  37.8, fcfPS: 126, wacc:  8.5, tg: 3.0, g1: 14, g2:  8 },
+  { ticker: 'GOOGL',     name: 'Alphabet Inc.',     sector: 'Teknologi', pe: 23.1, ps:  6.2, evEbitda: 15.8, pbv:  6.4, revGrowth:  14.9, netMargin: 23.7, roe:  27.6, fcfPS:  63, wacc:  9.5, tg: 2.5, g1: 13, g2:  7 },
+  { ticker: 'NVDA',      name: 'NVIDIA Corp.',      sector: 'Teknologi', pe: 50.2, ps: 22.1, evEbitda: 41.5, pbv: 32.0, revGrowth: 122.4, netMargin: 55.0, roe: 123.5, fcfPS:  37, wacc: 10.0, tg: 3.0, g1: 40, g2: 15 },
+  { ticker: 'META',      name: 'Meta Platforms',    sector: 'Teknologi', pe: 26.3, ps:  8.1, evEbitda: 17.9, pbv:  7.8, revGrowth:  22.1, netMargin: 28.8, roe:  35.2, fcfPS: 220, wacc:  9.0, tg: 2.5, g1: 18, g2:  9 },
+  { ticker: 'AMZN',      name: 'Amazon.com Inc.',   sector: 'Forbruker', pe: 44.8, ps:  3.2, evEbitda: 20.3, pbv:  9.1, revGrowth:  12.3, netMargin:  5.2, roe:  18.1, fcfPS:  43, wacc:  9.5, tg: 2.5, g1: 15, g2:  8 },
+  { ticker: 'NFLX',      name: 'Netflix Inc.',      sector: 'Forbruker', pe: 45.6, ps:  9.2, evEbitda: 32.1, pbv: 18.4, revGrowth:  14.8, netMargin: 15.4, roe:  37.1, fcfPS: 185, wacc:  9.0, tg: 2.5, g1: 16, g2:  8 },
+  { ticker: 'TSLA',      name: 'Tesla Inc.',        sector: 'Industri',  pe: 62.1, ps:  8.4, evEbitda: 38.5, pbv: 11.2, revGrowth:  -1.2, netMargin:  4.1, roe:   9.4, fcfPS:  12, wacc: 10.0, tg: 3.0, g1: 15, g2: 10 },
+  { ticker: 'EQNR',      name: 'Equinor ASA',       sector: 'Energi',    pe:  9.2, ps:  0.8, evEbitda:  4.5, pbv:  1.8, revGrowth:  -3.2, netMargin:  9.1, roe:  19.8, fcfPS:  31, wacc:  8.5, tg: 1.5, g1:  3, g2:  1 },
+  { ticker: 'DNB',       name: 'DNB Bank ASA',      sector: 'Finans',    pe: 11.4, ps:  2.8, evEbitda:  null, pbv:  1.4, revGrowth:   5.8, netMargin: 25.4, roe:  12.4, fcfPS:  20, wacc:  9.0, tg: 2.0, g1:  5, g2:  3 },
+  { ticker: 'SCHIBSTED', name: 'Schibsted ASA',     sector: 'Teknologi', pe: 18.5, ps:  2.1, evEbitda: 12.3, pbv:  3.2, revGrowth:   8.4, netMargin:  8.9, roe:  14.2, fcfPS:  11, wacc:  9.5, tg: 2.0, g1:  8, g2:  4 },
+];

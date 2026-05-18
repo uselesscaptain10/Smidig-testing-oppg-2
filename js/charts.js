@@ -10,6 +10,7 @@ let sectorChartInst      = null;
 let typeChartInst        = null;
 let gainChartInst        = null;
 let riskChartInst        = null;
+let compsChartInst       = null;
 
 const CHART_DEFAULTS = {
   responsive: true,
@@ -297,6 +298,59 @@ function renderGainChart(holdings) {
           ...CHART_DEFAULTS.plugins.tooltip,
           callbacks: { label: ctx => `${ctx.dataset.label}: ${fmtNOK(ctx.parsed.y)}` }
         }
+      }
+    }
+  });
+}
+
+/* ─── COMPS BAR CHART ────────────────────────────────────────────── */
+function renderCompsBarChart(metric = 'pe') {
+  const ctx = document.getElementById('compsChart');
+  if (!ctx) return;
+
+  const sector = document.getElementById('compsSector')?.value || '';
+  const data   = sector ? COMP_DATA.filter(c => c.sector === sector) : COMP_DATA;
+
+  const metricLabels = {
+    pe: 'P/E', ps: 'P/S', evEbitda: 'EV/EBITDA',
+    revGrowth: 'Omsetningsvekst %', netMargin: 'Nettomarg. %', roe: 'ROE %'
+  };
+
+  const positiveMetrics = ['revGrowth', 'netMargin', 'roe'];
+  const labels = data.map(c => c.ticker);
+  const values = data.map(c => c[metric]);
+  const colors = values.map(v => {
+    if (positiveMetrics.includes(metric))
+      return v >= 0 ? 'rgba(34,197,94,.75)' : 'rgba(239,68,68,.75)';
+    return 'rgba(59,130,246,.75)';
+  });
+
+  const titleEl = document.getElementById('compsChartTitle');
+  if (titleEl) titleEl.textContent = `${metricLabels[metric] || metric} – Sammenligning`;
+
+  if (compsChartInst) compsChartInst.destroy();
+
+  compsChartInst = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: metricLabels[metric] || metric,
+        data: values,
+        backgroundColor: colors,
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      ...CHART_DEFAULTS,
+      indexAxis: 'y',
+      scales: {
+        x: { grid: { color: '#2a3347' }, ticks: { color: '#64748b' } },
+        y: { grid: { color: '#2a3347' }, ticks: { color: '#94a3b8' } }
+      },
+      plugins: {
+        ...CHART_DEFAULTS.plugins,
+        legend: { display: false },
       }
     }
   });
